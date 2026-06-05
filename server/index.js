@@ -77,7 +77,23 @@ const seedIncidents = [
   },
 ];
 
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:3000' }));
+const allowedOrigins = new Set(
+  (process.env.CLIENT_ORIGIN || 'http://localhost:3000,https://california-burrito.vercel.app')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`CORS blocked origin: ${origin}`));
+  },
+}));
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/', (req, res) => {
