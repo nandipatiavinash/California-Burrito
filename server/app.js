@@ -312,56 +312,73 @@ app.put('/api/incidents/:id', async (req, res, next) => {
 
 app.patch('/api/incidents/:id/status', async (req, res, next) => {
   try {
-    const status = String(req.body.status || '').trim();
-    if (!statuses.has(status)) {
-      res.status(400).json({ errors: { status: 'Choose a valid status.' } });
-      return;
-    }
-
-    if (supabase) {
-      const { error } = await supabase
-        .from('incidents')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', req.params.id);
-
-      if (error) throw error;
-
-      const { data, error: fetchError } = await supabase
-        .from('incidents')
-        .select('*')
-        .eq('id', req.params.id)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-      if (!data) {
-        res.status(404).json({ errors: { incident: 'Incident not found.' } });
-        return;
-      }
-
-      res.json(toClient(data));
-      return;
-    }
-
-    const incidents = await readLocalIncidents();
-    const found = incidents.find((incident) => String(incident.id) === String(req.params.id));
-    if (!found) {
-      res.status(404).json({ errors: { incident: 'Incident not found.' } });
-      return;
-    }
-
-    const updated = {
-      ...found,
-      status,
-      updatedAt: new Date().toISOString(),
-    };
-    await writeLocalIncidents(
-      incidents.map((incident) => (String(incident.id) === String(req.params.id) ? updated : incident)),
-    );
+    const updated = await updateIncidentStatus(req.params.id, req.body.status);
     res.json(updated);
   } catch (error) {
     next(error);
   }
 });
+
+app.post('/api/incidents/:id/status', async (req, res, next) => {
+  try {
+    const updated = await updateIncidentStatus(req.params.id, req.body.status);
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+async function updateIncidentStatus(id, rawStatus) {
+  const status = String(rawStatus || '').trim();
+  if (!statuses.has(status)) {
+    const error = new Error('Choose a valid status.');
+    error.statusCode = 400;
+    error.errors = { status: 'Choose a valid status.' };
+    throw error;
+  }
+
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('incidents')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      error.statusCode = 500;
+      throw error;
+    }
+
+    if (!data) {
+      const notFound = new Error('Incident not found.');
+      notFound.statusCode = 404;
+      notFound.errors = { incident: 'Incident not found.' };
+      throw notFound;
+    }
+
+    return toClient(data);
+  }
+
+  const incidents = await readLocalIncidents();
+  const found = incidents.find((incident) => String(incident.id) === String(id));
+  if (!found) {
+    const error = new Error('Incident not found.');
+    error.statusCode = 404;
+    error.errors = { incident: 'Incident not found.' };
+    throw error;
+  }
+
+  const updated = {
+    ...found,
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+  await writeLocalIncidents(
+    incidents.map((incident) => (String(incident.id) === String(id) ? updated : incident)),
+  );
+  return updated;
+}
 
 app.delete('/api/incidents/:id', async (req, res, next) => {
   try {
@@ -388,7 +405,10 @@ app.delete('/api/incidents/:id', async (req, res, next) => {
 
 app.use((error, req, res, next) => {
   console.error(error);
-  res.status(500).json({ error: 'Something went wrong while handling incidents.' });
+  res.status(error.statusCode || 500).json({
+    error: error.message || 'Something went wrong while handling incidents.',
+    errors: error.errors,
+  });
 });
 
 export default app;

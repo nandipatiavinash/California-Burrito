@@ -44,7 +44,13 @@ async function api(path, options = {}) {
   });
 
   if (response.status === 204) return null;
-  const data = await response.json();
+  const responseText = await response.text();
+  let data = {};
+  try {
+    data = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    data = { error: responseText || `Request failed with status ${response.status}` };
+  }
   if (!response.ok) {
     const error = new Error(data.error || 'Request failed.');
     error.errors = data.errors || {};
@@ -119,14 +125,19 @@ function App() {
     setUpdatingStatusIds((current) => new Set(current).add(String(id)));
     setIncidents((current) => current.map((incident) => (String(incident.id) === String(id) ? { ...incident, status } : incident)));
     try {
-      const updated = await api(`/api/incidents/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      let updated;
+      try {
+        updated = await api(`/api/incidents/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      } catch {
+        updated = await api(`/api/incidents/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+      }
       setIncidents((current) => current.map((incident) => (String(incident.id) === String(id) ? updated : incident)));
       setApiMessage('');
-    } catch {
+    } catch (error) {
       if (currentIncident) {
         setIncidents((current) => current.map((incident) => (String(incident.id) === String(id) ? currentIncident : incident)));
       }
-      setApiMessage('Could not update status. Check that npm run dev:api is running.');
+      setApiMessage(`Could not update status: ${error.message}`);
     } finally {
       setUpdatingStatusIds((current) => {
         const next = new Set(current);
