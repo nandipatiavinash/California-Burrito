@@ -80,6 +80,15 @@ const seedIncidents = [
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:3000' }));
 app.use(express.json({ limit: '1mb' }));
 
+app.get('/', (req, res) => {
+  res.json({
+    name: 'California Burrito Incident API',
+    ok: true,
+    health: '/api/health',
+    incidents: '/api/incidents',
+  });
+});
+
 function toClient(row) {
   return {
     id: row.id,
