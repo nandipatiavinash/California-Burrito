@@ -319,14 +319,25 @@ app.patch('/api/incidents/:id/status', async (req, res, next) => {
     }
 
     if (supabase) {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('incidents')
         .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', req.params.id)
-        .select('*')
-        .single();
+        .eq('id', req.params.id);
 
       if (error) throw error;
+
+      const { data, error: fetchError } = await supabase
+        .from('incidents')
+        .select('*')
+        .eq('id', req.params.id)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+      if (!data) {
+        res.status(404).json({ errors: { incident: 'Incident not found.' } });
+        return;
+      }
+
       res.json(toClient(data));
       return;
     }

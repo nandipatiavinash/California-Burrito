@@ -616,6 +616,11 @@ td[data-label='Store'] svg {
   font-weight: 700;
 }
 
+.status-select:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .empty-state {
   display: grid;
   justify-items: center;

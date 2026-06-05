@@ -84,6 +84,7 @@ function App() {
   const [incidents, setIncidents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [apiMessage, setApiMessage] = useState('');
+  const [updatingStatusIds, setUpdatingStatusIds] = useState(new Set());
 
   async function loadIncidents() {
     setIsLoading(true);
@@ -115,6 +116,7 @@ function App() {
 
   async function updateStatus(id, status) {
     const currentIncident = incidents.find((incident) => String(incident.id) === String(id));
+    setUpdatingStatusIds((current) => new Set(current).add(String(id)));
     setIncidents((current) => current.map((incident) => (String(incident.id) === String(id) ? { ...incident, status } : incident)));
     try {
       const updated = await api(`/api/incidents/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
@@ -125,6 +127,12 @@ function App() {
         setIncidents((current) => current.map((incident) => (String(incident.id) === String(id) ? currentIncident : incident)));
       }
       setApiMessage('Could not update status. Check that npm run dev:api is running.');
+    } finally {
+      setUpdatingStatusIds((current) => {
+        const next = new Set(current);
+        next.delete(String(id));
+        return next;
+      });
     }
   }
 
@@ -142,7 +150,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage incidents={incidents} isLoading={isLoading} />} />
             <Route path="/report" element={<ReportPage onSubmit={createIncident} />} />
-            <Route path="/incidents" element={<IncidentsPage incidents={incidents} isLoading={isLoading} onStatusChange={updateStatus} />} />
+            <Route path="/incidents" element={<IncidentsPage incidents={incidents} isLoading={isLoading} updatingStatusIds={updatingStatusIds} onStatusChange={updateStatus} />} />
             <Route
               path="/incidents/:id"
               element={<IncidentDetailPage incidents={incidents} onUpdate={updateIncident} onDelete={deleteIncident} />}
@@ -278,7 +286,7 @@ function ReportPage({ onSubmit }) {
   );
 }
 
-function IncidentsPage({ incidents, isLoading, onStatusChange }) {
+function IncidentsPage({ incidents, isLoading, updatingStatusIds, onStatusChange }) {
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState({ category: 'All Categories', severity: 'All Severities', status: 'All Statuses' });
 
@@ -302,7 +310,7 @@ function IncidentsPage({ incidents, isLoading, onStatusChange }) {
         </div>
         <Filters query={query} setQuery={setQuery} filters={filters} setFilters={setFilters} />
         {isLoading ? <EmptyState title="Loading incidents..." text="Pulling the latest queue from the backend." /> : (
-          <IncidentTable incidents={filteredIncidents} onStatusChange={onStatusChange} />
+          <IncidentTable incidents={filteredIncidents} updatingStatusIds={updatingStatusIds} onStatusChange={onStatusChange} />
         )}
       </section>
     </section>
@@ -461,7 +469,7 @@ function Filters({ query, setQuery, filters, setFilters }) {
   );
 }
 
-function IncidentTable({ incidents, onStatusChange }) {
+function IncidentTable({ incidents, updatingStatusIds, onStatusChange }) {
   if (incidents.length === 0) return <EmptyState title="No incidents match those filters." text="Clear a filter or search for another incident title." />;
 
   return (
@@ -486,7 +494,13 @@ function IncidentTable({ incidents, onStatusChange }) {
               <td data-label="Store"><MapPin size={15} /> {incident.storeLocation}</td>
               <td data-label="Severity"><Badge type="severity" value={incident.severity} /></td>
               <td data-label="Status">
-                <select className="status-select" value={incident.status} onChange={(event) => onStatusChange(incident.id, event.target.value)} aria-label={`Update status for ${incident.title}`}>
+                <select
+                  className="status-select"
+                  value={incident.status}
+                  disabled={updatingStatusIds.has(String(incident.id))}
+                  onChange={(event) => onStatusChange(incident.id, event.target.value)}
+                  aria-label={`Update status for ${incident.title}`}
+                >
                   {statuses.map((status) => <option key={status}>{status}</option>)}
                 </select>
                 <Badge type="status" value={incident.status} />
