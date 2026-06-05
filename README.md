@@ -88,7 +88,13 @@ SUPABASE_URL=your-supabase-url
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
-Set this frontend environment variable when the API is deployed on a separate domain:
+The included `vercel.json` proxies `/api/*` to the Render backend:
+
+```text
+https://california-burrito.onrender.com
+```
+
+Alternatively, set this frontend environment variable when the API is deployed on a different domain:
 
 ```text
 VITE_API_URL=https://your-api-domain.example
