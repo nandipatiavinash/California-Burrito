@@ -1,6 +1,6 @@
 # California Burrito Incident Desk
 
-Restaurant incident reporting tool with a React/Vite frontend and Express API.
+Restaurant incident reporting tool with a React/Vite frontend and Express API. The API can run locally as an Express server and deploy on Vercel as serverless functions.
 
 ## Features
 
@@ -19,7 +19,7 @@ Install dependencies:
 npm install
 ```
 
-Start the backend:
+Start the backend locally:
 
 ```powershell
 npm run dev:api
@@ -73,37 +73,27 @@ To use Supabase/Postgres:
 
 ## Deployment
 
-Suggested deployment:
+Recommended deployment:
 
-- Frontend: Vercel or Netlify
-- Backend: Render, Railway, or Azure App Service
+- Frontend and API: Vercel
 - Database: Supabase Postgres
 
-Set these backend environment variables in production:
+Set these Vercel environment variables:
 
 ```text
-PORT=4000
-CLIENT_ORIGIN=https://your-frontend-domain.example
 SUPABASE_URL=your-supabase-url
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
-The included `vercel.json` proxies `/api/*` to the Render backend:
+Vercel serves the React app and the API from the same domain. Keep `vercel.json` so browser routes like `/report` and `/incidents/1` load correctly on refresh.
 
-```text
-https://california-burrito.onrender.com
-```
+Test these after deployment:
 
-Alternatively, set this frontend environment variable when the API is deployed on a different domain:
-
-```text
-VITE_API_URL=https://your-api-domain.example
-```
-
-For Vercel, keep `vercel.json` so browser routes like `/report` and `/incidents/1` load correctly on refresh.
+- `/api/health`
+- `/api/incidents`
 
 ## Assumptions
 
 - Authentication and role-based access are optional bonus scope and not required for the core assessment.
-- The local JSON fallback is for development/review only; Supabase/Postgres should be used for production persistence.
+- The local JSON fallback is for development/review only; Supabase/Postgres should be used for Vercel production persistence.
 - Incident status starts as `Open` unless edited by a manager.

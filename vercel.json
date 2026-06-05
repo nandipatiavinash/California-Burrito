@@ -1,9 +1,5 @@
 {
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://california-burrito.onrender.com/api/:path*"
-    },
     { "source": "/((?!api/).*)", "destination": "/" }
   ]
 }
