@@ -30,6 +30,8 @@ const categories = new Set([
 
 const severities = new Set(['Low', 'Medium', 'High', 'Critical']);
 const statuses = new Set(['Open', 'In Progress', 'Resolved']);
+const assistantCategories = Array.from(categories);
+const assistantSeverities = Array.from(severities);
 
 const seedIncidents = [
   {
@@ -180,8 +182,143 @@ function validateIncident(body) {
   };
 }
 
+async function suggestIncidentDetails({ title, description }) {
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const suggestion = await suggestWithOpenAI({ title, description });
+      if (suggestion) return suggestion;
+    } catch (error) {
+      console.error('OpenAI assistant fallback:', error.message);
+    }
+  }
+
+  return suggestWithLocalRules({ title, description });
+}
+
+async function suggestWithOpenAI({ title, description }) {
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || 'gpt-5-mini',
+      input: [
+        {
+          role: 'system',
+          content: [
+            {
+              type: 'input_text',
+              text: [
+                'You classify restaurant/QSR operational incidents.',
+                'Return only JSON that matches the requested schema.',
+                `Allowed categories: ${assistantCategories.join(', ')}.`,
+                `Allowed severities: ${assistantSeverities.join(', ')}.`,
+              ].join(' '),
+            },
+          ],
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: `Title: ${title || 'N/A'}\nDescription: ${description}`,
+            },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'incident_assistant_suggestion',
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              category: { type: 'string', enum: assistantCategories },
+              severity: { type: 'string', enum: assistantSeverities },
+              summary: { type: 'string' },
+              reason: { type: 'string' },
+            },
+            required: ['category', 'severity', 'summary', 'reason'],
+          },
+          strict: true,
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI request failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const outputText = data.output_text || data.output?.flatMap((item) => item.content || [])
+    .find((content) => content.type === 'output_text')?.text;
+  const parsed = JSON.parse(outputText);
+
+  if (!categories.has(parsed.category) || !severities.has(parsed.severity)) return null;
+
+  return {
+    category: parsed.category,
+    severity: parsed.severity,
+    summary: String(parsed.summary || '').slice(0, 180),
+    reason: String(parsed.reason || '').slice(0, 180),
+    source: 'OpenAI',
+  };
+}
+
+function suggestWithLocalRules({ title, description }) {
+  const text = `${title} ${description}`.toLowerCase();
+  const categoryRules = [
+    ['POS Issue', ['pos', 'terminal', 'payment', 'card', 'billing', 'receipt', 'printer', 'checkout']],
+    ['Delivery Delay', ['delivery', 'rider', 'driver', 'pickup', 'order delayed', 'late', 'swiggy', 'zomato']],
+    ['Inventory', ['stock', 'inventory', 'shortage', 'out of', 'missing', 'low', 'ingredient', 'avocado', 'tortilla']],
+    ['Kitchen Equipment', ['equipment', 'fryer', 'warmer', 'grill', 'oven', 'freezer', 'refrigerator', 'temperature']],
+    ['Customer Complaint', ['customer', 'complaint', 'refund', 'angry', 'wrong order', 'quality', 'feedback']],
+  ];
+  const severityRules = [
+    ['Critical', ['cannot operate', 'store closed', 'all orders', 'fire', 'injury', 'unsafe', 'outage', 'no payments']],
+    ['High', ['rush', 'multiple', 'customers cannot', 'temperature', 'broken', 'failed', 'blocked', 'delayed orders']],
+    ['Medium', ['low stock', 'delay', 'slow', 'complaint', 'replacement', 'transfer']],
+  ];
+
+  const category = categoryRules.find(([, keywords]) => keywords.some((keyword) => text.includes(keyword)))?.[0] || 'Other';
+  const severity = severityRules.find(([, keywords]) => keywords.some((keyword) => text.includes(keyword)))?.[0] || 'Low';
+  const summarySource = description || title;
+  const summary = summarySource.length > 140 ? `${summarySource.slice(0, 137).trim()}...` : summarySource;
+
+  return {
+    category,
+    severity,
+    summary,
+    reason: `Matched restaurant operation keywords for ${category.toLowerCase()} with ${severity.toLowerCase()} impact.`,
+    source: 'Local assistant',
+  };
+}
+
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, storage: supabase ? 'supabase' : 'local-json' });
+});
+
+app.post('/api/assistant', async (req, res, next) => {
+  try {
+    const title = String(req.body.title || '').trim();
+    const description = String(req.body.description || '').trim();
+
+    if (`${title} ${description}`.trim().length < 10) {
+      res.status(400).json({
+        errors: { description: 'Enter at least 10 characters before asking the assistant.' },
+      });
+      return;
+    }
+
+    res.json(await suggestIncidentDetails({ title, description }));
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get('/api/incidents', async (req, res, next) => {

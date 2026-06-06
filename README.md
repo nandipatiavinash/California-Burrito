@@ -6,6 +6,7 @@ Restaurant incident reporting tool with a React/Vite frontend and Express API. T
 
 - Separate pages for dashboard, report submission, incident queue, and incident details
 - Incident create, read, update, delete, and status update flows
+- AI incident assistant for category, severity, and summary suggestions
 - Search by incident title
 - Filters for category, severity, and status
 - Responsive QSR-style UI inspired by California Burrito branding
@@ -42,6 +43,24 @@ Open `http://localhost:3000`.
 - Express
 - Supabase/Postgres optional database
 - Local JSON fallback for zero-config review
+
+## AI Assistant
+
+The report form includes an AI assistant that suggests:
+
+- Incident category
+- Severity level
+- Short manager summary
+- Reason for the recommendation
+
+It works without external services using local restaurant-operations rules. To use OpenAI instead, add these environment variables in Vercel:
+
+```text
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-5-mini
+```
+
+If the OpenAI request fails or no key is configured, the app automatically falls back to local suggestions.
 
 ## Database
 
@@ -83,6 +102,8 @@ Set these Vercel environment variables:
 ```text
 SUPABASE_URL=your-supabase-url
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+OPENAI_API_KEY=optional-openai-api-key
+OPENAI_MODEL=gpt-5-mini
 ```
 
 Vercel serves the React app and the API from the same domain. Keep `vercel.json` so browser routes like `/report` and `/incidents/1` load correctly on refresh.

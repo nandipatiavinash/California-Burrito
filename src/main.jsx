@@ -17,6 +17,7 @@ import {
   PenLine,
   Plus,
   Search,
+  Sparkles,
   Store,
   Trash2,
 } from 'lucide-react';
@@ -401,6 +402,8 @@ function IncidentForm({ initialValue = emptyForm, submitLabel, includeStatus = f
   const [form, setForm] = useState(initialValue);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [assistantSuggestion, setAssistantSuggestion] = useState(null);
+  const [isSuggesting, setIsSuggesting] = useState(false);
 
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -432,6 +435,39 @@ function IncidentForm({ initialValue = emptyForm, submitLabel, includeStatus = f
     }
   }
 
+  async function suggestIncident() {
+    setIsSuggesting(true);
+    setErrors((current) => ({ ...current, assistant: '' }));
+
+    try {
+      const suggestion = await api('/api/assistant', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+        }),
+      });
+      setAssistantSuggestion(suggestion);
+    } catch (error) {
+      setAssistantSuggestion(null);
+      setErrors((current) => ({
+        ...current,
+        assistant: error.errors?.description || error.message || 'Assistant could not suggest details.',
+      }));
+    } finally {
+      setIsSuggesting(false);
+    }
+  }
+
+  function applySuggestion() {
+    if (!assistantSuggestion) return;
+    setForm((current) => ({
+      ...current,
+      category: assistantSuggestion.category,
+      severity: assistantSuggestion.severity,
+    }));
+  }
+
   return (
     <section className="panel form-panel">
       <form onSubmit={submit} noValidate>
@@ -446,6 +482,40 @@ function IncidentForm({ initialValue = emptyForm, submitLabel, includeStatus = f
           <textarea value={form.description} onChange={(event) => updateForm('description', event.target.value)} placeholder="What happened, who is affected, and what has already been tried?" />
           {errors.description && <span className="field-error">{errors.description}</span>}
         </label>
+        <div className="assistant-panel">
+          <div>
+            <p><Sparkles size={16} /> AI Incident Assistant</p>
+            <span>Suggest category, severity, and a manager-ready summary from the report text.</span>
+          </div>
+          <button className="secondary-button compact-button" type="button" onClick={suggestIncident} disabled={isSuggesting}>
+            <Sparkles size={16} /> {isSuggesting ? 'Thinking...' : 'Suggest'}
+          </button>
+          {errors.assistant && <span className="field-error assistant-error">{errors.assistant}</span>}
+          {assistantSuggestion && (
+            <div className="assistant-result">
+              <div>
+                <strong>Category</strong>
+                <span className="suggestion-pill">{assistantSuggestion.category}</span>
+              </div>
+              <div>
+                <strong>Severity</strong>
+                <Badge type="severity" value={assistantSuggestion.severity} />
+              </div>
+              <div className="assistant-summary">
+                <strong>Summary</strong>
+                <span>{assistantSuggestion.summary}</span>
+              </div>
+              <div className="assistant-summary">
+                <strong>Reason</strong>
+                <span>{assistantSuggestion.reason}</span>
+              </div>
+              <button className="primary-button compact-button" type="button" onClick={applySuggestion}>
+                Apply suggestion
+              </button>
+              <small>{assistantSuggestion.source}</small>
+            </div>
+          )}
+        </div>
         <div className="form-row">
           <label>Category<select value={form.category} onChange={(event) => updateForm('category', event.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
           <label>Severity<select value={form.severity} onChange={(event) => updateForm('severity', event.target.value)}>{severities.map((severity) => <option key={severity}>{severity}</option>)}</select></label>
