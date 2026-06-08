@@ -404,10 +404,12 @@ function IncidentForm({ initialValue = emptyForm, submitLabel, includeStatus = f
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [assistantSuggestion, setAssistantSuggestion] = useState(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [assistantApplied, setAssistantApplied] = useState(false);
 
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: '' }));
+    if (field === 'category' || field === 'severity') setAssistantApplied(false);
   }
 
   function validate() {
@@ -448,8 +450,15 @@ function IncidentForm({ initialValue = emptyForm, submitLabel, includeStatus = f
         }),
       });
       setAssistantSuggestion(suggestion);
+      setForm((current) => ({
+        ...current,
+        category: suggestion.category,
+        severity: suggestion.severity,
+      }));
+      setAssistantApplied(true);
     } catch (error) {
       setAssistantSuggestion(null);
+      setAssistantApplied(false);
       setErrors((current) => ({
         ...current,
         assistant: error.errors?.description || error.message || 'Assistant could not suggest details.',
@@ -466,6 +475,7 @@ function IncidentForm({ initialValue = emptyForm, submitLabel, includeStatus = f
       category: assistantSuggestion.category,
       severity: assistantSuggestion.severity,
     }));
+    setAssistantApplied(true);
   }
 
   return (
@@ -510,7 +520,7 @@ function IncidentForm({ initialValue = emptyForm, submitLabel, includeStatus = f
                 <span>{assistantSuggestion.reason}</span>
               </div>
               <button className="primary-button compact-button" type="button" onClick={applySuggestion}>
-                Apply suggestion
+                {assistantApplied ? 'Applied' : 'Apply suggestion'}
               </button>
               <small>{assistantSuggestion.source}</small>
             </div>

@@ -440,6 +440,10 @@ textarea:focus {
   width: fit-content;
 }
 
+.assistant-result .primary-button {
+  min-width: 142px;
+}
+
 .secondary-link,
 .secondary-button {
   border: 1px solid var(--line);

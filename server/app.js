@@ -273,20 +273,20 @@ async function suggestWithOpenAI({ title, description }) {
 function suggestWithLocalRules({ title, description }) {
   const text = `${title} ${description}`.toLowerCase();
   const categoryRules = [
-    ['POS Issue', ['pos', 'terminal', 'payment', 'card', 'billing', 'receipt', 'printer', 'checkout']],
-    ['Delivery Delay', ['delivery', 'rider', 'driver', 'pickup', 'order delayed', 'late', 'swiggy', 'zomato']],
-    ['Inventory', ['stock', 'inventory', 'shortage', 'out of', 'missing', 'low', 'ingredient', 'avocado', 'tortilla']],
-    ['Kitchen Equipment', ['equipment', 'fryer', 'warmer', 'grill', 'oven', 'freezer', 'refrigerator', 'temperature']],
-    ['Customer Complaint', ['customer', 'complaint', 'refund', 'angry', 'wrong order', 'quality', 'feedback']],
+    ['POS Issue', ['pos', 'terminal', 'payment', 'card', 'cash', 'upi', 'billing', 'bill', 'receipt', 'printer', 'checkout', 'transaction']],
+    ['Delivery Delay', ['delivery', 'rider', 'driver', 'pickup', 'order delayed', 'late', 'swiggy', 'zomato', 'aggregator', 'dispatch']],
+    ['Inventory', ['stock', 'inventory', 'shortage', 'out of', 'missing', 'low', 'ingredient', 'avocado', 'tortilla', 'rice', 'beans', 'salsa']],
+    ['Kitchen Equipment', ['equipment', 'fryer', 'warmer', 'grill', 'oven', 'freezer', 'refrigerator', 'fridge', 'temperature', 'machine']],
+    ['Customer Complaint', ['customer', 'complaint', 'refund', 'angry', 'wrong order', 'quality', 'feedback', 'rude', 'unhappy']],
   ];
   const severityRules = [
-    ['Critical', ['cannot operate', 'store closed', 'all orders', 'fire', 'injury', 'unsafe', 'outage', 'no payments']],
-    ['High', ['rush', 'multiple', 'customers cannot', 'temperature', 'broken', 'failed', 'blocked', 'delayed orders']],
-    ['Medium', ['low stock', 'delay', 'slow', 'complaint', 'replacement', 'transfer']],
+    ['Critical', ['cannot operate', 'store closed', 'all orders', 'fire', 'injury', 'unsafe', 'outage', 'no payments', 'complete stop']],
+    ['High', ['rush', 'multiple', 'many', 'customers cannot', 'temperature', 'broken', 'failed', 'blocked', 'stopped', 'delayed orders']],
+    ['Medium', ['low stock', 'delay', 'slow', 'complaint', 'replacement', 'transfer', 'partial']],
   ];
 
-  const category = categoryRules.find(([, keywords]) => keywords.some((keyword) => text.includes(keyword)))?.[0] || 'Other';
-  const severity = severityRules.find(([, keywords]) => keywords.some((keyword) => text.includes(keyword)))?.[0] || 'Low';
+  const category = pickBestRule(categoryRules, text, 'Other');
+  const severity = pickBestRule(severityRules, text, 'Low');
   const summarySource = description || title;
   const summary = summarySource.length > 140 ? `${summarySource.slice(0, 137).trim()}...` : summarySource;
 
@@ -297,6 +297,16 @@ function suggestWithLocalRules({ title, description }) {
     reason: `Matched restaurant operation keywords for ${category.toLowerCase()} with ${severity.toLowerCase()} impact.`,
     source: 'Local assistant',
   };
+}
+
+function pickBestRule(rules, text, fallback) {
+  return rules
+    .map(([label, keywords]) => ({
+      label,
+      score: keywords.reduce((total, keyword) => total + (text.includes(keyword) ? 1 : 0), 0),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .find((result) => result.score > 0)?.label || fallback;
 }
 
 app.get('/api/health', (req, res) => {
