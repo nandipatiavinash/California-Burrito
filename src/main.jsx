@@ -195,37 +195,54 @@ function TopNav() {
 
 function HomePage({ incidents, isLoading }) {
   const metrics = useMetrics(incidents);
-  const active = incidents.filter((incident) => incident.status !== 'Resolved').slice(0, 4);
+  const active = incidents
+    .filter((incident) => incident.status !== 'Resolved')
+    .sort((a, b) => severityRank(b.severity) - severityRank(a.severity) || new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 5);
+  const recent = incidents
+    .slice()
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 5);
 
   return (
     <>
-      <section className="hero-band">
+      <section className="dashboard-header">
         <div>
-          <p className="eyebrow"><ChefHat size={16} /> Live operations</p>
-          <h1>Keep every restaurant issue moving.</h1>
+          <p className="eyebrow"><ChefHat size={16} /> Operations dashboard</p>
+          <h1>Incident control center</h1>
           <p className="hero-copy">
-            A focused incident desk for staff reports, manager triage, store visibility, and fast resolution.
+            Review active issues, monitor resolution progress, and keep store teams aligned.
           </p>
-          <div className="hero-actions">
-            <Link className="primary-link" to="/report"><Plus size={18} /> New incident</Link>
-            <Link className="secondary-link" to="/incidents"><Eye size={18} /> View queue</Link>
-          </div>
         </div>
-        <div className="rush-panel" aria-label="Current service pulse">
-          <Flame size={28} />
-          <span>Active queue</span>
-          <strong>{metrics.open + metrics.inProgress}</strong>
+        <div className="dashboard-actions">
+          <Link className="primary-link" to="/report"><Plus size={18} /> New incident</Link>
+          <Link className="secondary-link" to="/incidents"><Eye size={18} /> View queue</Link>
         </div>
       </section>
 
       <Metrics incidents={incidents} />
 
-      <section className="split-page">
+      <section className="dashboard-grid">
+        <div className="panel priority-panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow"><AlertTriangle size={16} /> Priority queue</p>
+              <h2>Needs attention</h2>
+            </div>
+            <Link className="text-link" to="/incidents">Manage</Link>
+          </div>
+          {isLoading ? <EmptyState title="Loading queue..." /> : active.length ? (
+            <div className="priority-list">
+              {active.map((incident) => <IncidentMiniCard key={incident.id} incident={incident} />)}
+            </div>
+          ) : <EmptyState title="No active incidents" text="All reported issues are resolved." />}
+        </div>
+
         <div className="panel">
           <div className="section-heading">
             <div>
-              <p className="eyebrow"><BarChart3 size={16} /> At a glance</p>
-              <h2>Operational mix</h2>
+              <p className="eyebrow"><BarChart3 size={16} /> Severity mix</p>
+              <h2>Current distribution</h2>
             </div>
           </div>
           <div className="insight-list">
@@ -242,19 +259,26 @@ function HomePage({ incidents, isLoading }) {
           </div>
         </div>
 
-        <div className="panel">
+        <div className="panel recent-panel">
           <div className="section-heading">
             <div>
-              <p className="eyebrow"><AlertTriangle size={16} /> Needs attention</p>
-              <h2>Active incidents</h2>
+              <p className="eyebrow"><Clock3 size={16} /> Recent activity</p>
+              <h2>Latest reports</h2>
             </div>
-            <Link className="text-link" to="/incidents">See all</Link>
           </div>
-          {isLoading ? <EmptyState title="Loading queue..." /> : active.length ? (
-            <div className="active-list">
-              {active.map((incident) => <IncidentMiniCard key={incident.id} incident={incident} />)}
+          {isLoading ? <EmptyState title="Loading reports..." /> : recent.length ? (
+            <div className="recent-list">
+              {recent.map((incident) => (
+                <Link className="recent-row" key={incident.id} to={`/incidents/${incident.id}`}>
+                  <div>
+                    <strong>{incident.title}</strong>
+                    <span>{incident.storeLocation} · {formatDate(incident.createdAt)}</span>
+                  </div>
+                  <Badge type="status" value={incident.status} />
+                </Link>
+              ))}
             </div>
-          ) : <EmptyState title="No active incidents" text="All reported issues are resolved." />}
+          ) : <EmptyState title="No reports yet" text="New incidents will appear here." />}
         </div>
       </section>
     </>
@@ -280,6 +304,10 @@ function useMetrics(incidents) {
     inProgress: incidents.filter((incident) => incident.status === 'In Progress').length,
     resolved: incidents.filter((incident) => incident.status === 'Resolved').length,
   }), [incidents]);
+}
+
+function severityRank(severity) {
+  return { Low: 1, Medium: 2, High: 3, Critical: 4 }[severity] || 0;
 }
 
 function ReportPage({ onSubmit }) {
