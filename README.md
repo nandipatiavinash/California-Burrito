@@ -2,6 +2,11 @@
 
 Restaurant incident reporting tool with a React/Vite frontend and Express API. The API can run locally as an Express server and deploy on Vercel as serverless functions.
 
+## Submission Links
+
+- GitHub Repository: https://github.com/nandipatiavinash/California-Burrito
+- Deployed Application: https://california-burrito.vercel.app
+
 ## Features
 
 - Separate pages for dashboard, report submission, incident queue, and incident details
@@ -44,6 +49,18 @@ Open `http://localhost:3000`.
 - Supabase/Postgres optional database
 - Local JSON fallback for zero-config review
 
+## External Libraries And Services
+
+- `react`, `react-dom` - frontend UI
+- `react-router-dom` - multi-page routing
+- `lucide-react` - UI icons
+- `express` - API routing
+- `@supabase/supabase-js` - Supabase/Postgres database access
+- `cors` and `dotenv` - API configuration
+- Vercel - deployed frontend and serverless API
+- Supabase - production PostgreSQL database
+- OpenAI Responses API - optional AI assistant provider
+
 ## AI Assistant
 
 The report form includes an AI assistant that suggests:
@@ -81,7 +98,9 @@ To use Supabase/Postgres:
 - `POST /api/incidents`
 - `PUT /api/incidents/:id`
 - `PATCH /api/incidents/:id/status`
+- `POST /api/incidents/:id/status`
 - `DELETE /api/incidents/:id`
+- `POST /api/assistant`
 
 ## Pages
 
